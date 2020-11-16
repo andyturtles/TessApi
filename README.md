@@ -1,7 +1,7 @@
 # TessApi
 .net / C# Tesla API
 
-just a simple and easy implementation of the Tesla (mostly car) API for my Model 3.
+just a simple and easy implementation of the Tesla (mostly car) API.
 
 Example WPF Application is planed to follow
 
