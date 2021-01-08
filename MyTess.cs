@@ -124,13 +124,14 @@ namespace TessApi {
             string cmdTxt = $"driver_temp={drvStr}&passenger_temp={pasStr}";
             return await SendCommand("set_temps", cmdTxt);
         }
-
+        
+#warning Todo Coordinates!!!
         public async Task<TessApiResult> CloseWindows() {
-            string cmdTxt = $"command=close&lat=50.274013&lon=8.37771";
+            string cmdTxt = $"command=close&lat=50.000000&lon=8.00000";
             return await SendCommand("window_control", cmdTxt);
         }
         public async Task<TessApiResult> VentWindows() {
-            string cmdTxt = $"command=vent&lat=50.274013&lon=8.37771";
+            string cmdTxt = $"command=vent&lat=50.000000&lon=8.00000";
             return await SendCommand("window_control", cmdTxt);
         }
 
