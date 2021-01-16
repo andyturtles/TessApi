@@ -8,7 +8,6 @@ using TessApi.JsonData;
 
 namespace TessApi {
 
-
     /// <summary>
     /// API Info: https://tesla-api.timdorr.com/api-basics/authentication
     /// or
@@ -16,9 +15,7 @@ namespace TessApi {
     /// </summary>
     public class MyTess {
 
-#warning Obacht beim automatischen Abruf: Wenn wir Commands ausführen wird u.A. auf myCar zugegriffen, wegen ID und so, ggf. muss man die ID separat vorhalten damits keine Null-Refs gibt
-
-        long myCarId;
+        private long? myCarId;
 
         public LoginResponse LoginResponse { get; internal set; }
         public IList<Product> ProductList { get; internal set; }
@@ -33,9 +30,10 @@ namespace TessApi {
         public bool IsCharging {
             get { return ( MyCarData?.charge_state?.charging_state == "Charging" ); }
         }
+
         public bool CanDoCharging {
-            get { return ( !IsSleeping && 
-                           !IsCharging && 
+            get { return ( !IsSleeping &&
+                           !IsCharging &&
                            ( MyCarData?.charge_state?.charging_state != "Complete" ) &&
                            ( MyCarData?.charge_state?.charging_state != "Disconnected" ) ); }
         }
@@ -44,17 +42,20 @@ namespace TessApi {
             get { return ( MyCarData?.charge_state?.battery_level >= MyCarData?.charge_state?.charge_limit_soc ); }
         }
 
-        public MyTess(long carIdToUse) {
-            DateTime? dmy;
-            LoginResponse   = TessTools.LoadResponse<LoginResponse>(out dmy);
-            myCarId         = carIdToUse;
+        public MyTess() {
+            LoginResponse   = TessTools.LoadResponse<LoginResponse>(out _);
         }
-                
+
+        public void SetCarId(long cId) {
+            myCarId = cId;
+        }
+
         #region Doors etc. ...
 
         public async Task<TessApiResult> DoorsUnlock() {
             return await SendCommand("door_unlock");
         }
+
         public async Task<TessApiResult> DoorsLock() {
             return await SendCommand("door_lock");
         }
@@ -63,6 +64,7 @@ namespace TessApi {
             string cmdTxt = $"which_trunk=front";
             return await SendCommand("actuate_trunk", cmdTxt);
         }
+
         public async Task<TessApiResult> OpenRearTrunk() {
             string cmdTxt = $"which_trunk=rear";
             return await SendCommand("actuate_trunk", cmdTxt);
@@ -73,22 +75,22 @@ namespace TessApi {
             return await SendCommand("set_sentry_mode", cmdTxt);
         }
 
-
         public async Task<TessApiResult> HonkHorn() {
             return await SendCommand("honk_horn");
         }
+
         public async Task<TessApiResult> FlashLights() {
             return await SendCommand("flash_lights");
         }
 
-        
-        #endregion Doors etc.
+        #endregion Doors etc. ...
 
-        #region Charging Comands ...
+        #region Charging Commands ...
 
         public async Task<TessApiResult> OpenChargePort() {
             return await SendCommand("charge_port_door_open");
         }
+
         public async Task<TessApiResult> CloseChargePort() {
             return await SendCommand("charge_port_door_close");
         }
@@ -106,13 +108,14 @@ namespace TessApi {
             return await SendCommand("set_charge_limit", cmdTxt);
         }
 
-        #endregion Charging Comands
+        #endregion Charging Commands ...
 
-        #region Climate Comands ...
+        #region Climate Commands ...
 
         public async Task<TessApiResult> StartAutoconditioning() {
             return await SendCommand("auto_conditioning_start");
         }
+
         public async Task<TessApiResult> StopAutoconditioning() {
             return await SendCommand("auto_conditioning_stop");
         }
@@ -124,14 +127,21 @@ namespace TessApi {
             string cmdTxt = $"driver_temp={drvStr}&passenger_temp={pasStr}";
             return await SendCommand("set_temps", cmdTxt);
         }
-        
-#warning Todo Coordinates!!!
+
+        public async Task<TessApiResult> SetPreconditioningMax(bool on) {
+            string cmdTxt = $"on={on}";
+            return await SendCommand("set_preconditioning_max", cmdTxt);
+        }
+
+#warning Coordinates!!!
+
         public async Task<TessApiResult> CloseWindows() {
-            string cmdTxt = $"command=close&lat=50.000000&lon=8.00000";
+            string cmdTxt = $"command=close&lat=50.274013&lon=8.37771";
             return await SendCommand("window_control", cmdTxt);
         }
+
         public async Task<TessApiResult> VentWindows() {
-            string cmdTxt = $"command=vent&lat=50.000000&lon=8.00000";
+            string cmdTxt = $"command=vent&lat=50.274013&lon=8.37771";
             return await SendCommand("window_control", cmdTxt);
         }
 
@@ -142,6 +152,7 @@ namespace TessApi {
             Rear_center = 4,
             Rear_right  = 5
         }
+
         public enum SeatHeaterLevel {
             Off     = 0,
             Low     = 1,
@@ -154,12 +165,13 @@ namespace TessApi {
             return await SendCommand("remote_seat_heater_request", cmdTxt);
         }
 
-        #endregion Climate Comands
+        #endregion Climate Commands ...
 
         #region State / Wakeup etc. ...
+
         public async Task<TessApiResult> WakeUp() {
             this.MyCarData          = null;
-            string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{MyCar.id}/wake_up";
+            string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{myCarId.Value}/wake_up";
             try {
                 string result           = await CallUrl(url, "POST");
                 CarDataResponse pr      = SerializeTool.DeSerializeJson<CarDataResponse>(result);
@@ -188,7 +200,7 @@ namespace TessApi {
 
                 if ( MyCar == null ) return new TessApiResult(false, "No Car Data");
 
-                string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{MyCar.id}/vehicle_data";
+                string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{myCarId.Value}/vehicle_data";
                 string result           = await CallUrl(url, "GET");
                 cdr                     = SerializeTool.DeSerializeJson<CarDataResponse>(result);
                 MyCarData               = cdr.response;
@@ -208,8 +220,7 @@ namespace TessApi {
             try {
                 ProductResponse pr;
                 if ( loadFromDisk ) {
-                    DateTime? dmy;
-                    pr              = TessTools.LoadResponse<ProductResponse>(out dmy);
+                    pr              = TessTools.LoadResponse<ProductResponse>(out _);
                 }
                 else {
                     // Optional https://owner-api.teslamotors.com/api/1/vehicles
@@ -221,9 +232,12 @@ namespace TessApi {
 
                 ProductList         = pr.response;
 
-                foreach ( Product p in pr.response ) {
-                    if ( p.id == myCarId ) MyCar = p; // Hoffen wir mal das meine ID gleich bleibt
+                if ( myCarId.HasValue ) {
+                    foreach ( Product p in pr.response ) {
+                        if ( p.id == myCarId ) MyCar = p;
+                    }
                 }
+
                 return new TessApiResult();
             }
             catch ( Exception ex ) {
@@ -249,12 +263,12 @@ namespace TessApi {
                 return new TessApiResult(ex);
             }
         }
-        #endregion State / Wakeup etc
 
+        #endregion State / Wakeup etc. ...
 
          private async Task<TessApiResult> SendCommand(string command, string commandText = null) {
             try {
-                string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{MyCar.id}/command/" + command;
+                string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{myCarId.Value}/command/" + command;
                 string result           = await CallUrl(url, "POST", true, commandText);
                 CommandResult cr        = SerializeTool.DeSerializeJson<CommandResult>(result);
                 TessTools.SaveResponse(cr, command);
@@ -265,7 +279,6 @@ namespace TessApi {
                 return new TessApiResult(ex);
             }
         }
-
 
         private async Task<string> CallUrl(string url, string method, bool addToken = true, string bodyText = null) {
             string action;
@@ -303,10 +316,7 @@ namespace TessApi {
                 finally {
                     response?.Dispose();
                 }
-            } // end using ( HttpClient cl 
-
+            } // end using ( HttpClient cl
         }
-
-
     }
 }
