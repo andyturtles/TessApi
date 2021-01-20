@@ -9,8 +9,8 @@ namespace TessApi.JsonData {
 
     public class Product {
         public long id { get; set; }
-        public int user_id { get; set; }
-        public int vehicle_id { get; set; }
+        public long user_id { get; set; }
+        public long vehicle_id { get; set; }
         public string vin { get; set; }
         public string display_name { get; set; }
         public string option_codes { get; set; }
@@ -24,6 +24,4 @@ namespace TessApi.JsonData {
         public object backseat_token { get; set; }
         public object backseat_token_updated_at { get; set; }
     }
-
-
 }

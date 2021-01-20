@@ -49,7 +49,6 @@ namespace TessApi.JsonData {
         public bool? trip_charging { get; set; }
         public int? usable_battery_level { get; set; }
         public object user_charge_enable_request { get; set; }
-
     }
 
     public class ClimateState {
@@ -195,8 +194,8 @@ namespace TessApi.JsonData {
 
     public class CarData {
         public long id { get; set; }
-        public int? user_id { get; set; }
-        public int? vehicle_id { get; set; }
+        public long? user_id { get; set; }
+        public long? vehicle_id { get; set; }
         public string vin { get; set; }
         public string display_name { get; set; }
         public string option_codes { get; set; }
@@ -215,8 +214,5 @@ namespace TessApi.JsonData {
         public GuiSettings gui_settings { get; set; }
         public VehicleConfig vehicle_config { get; set; }
         public VehicleState vehicle_state { get; set; }
-
-
     }
-
 }

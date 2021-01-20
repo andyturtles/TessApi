@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -251,11 +252,15 @@ namespace TessApi {
             string client_secret    = "c75f14bbadc8bee3a7594412c31416f8300256d7668ea7e6e7f06727bfb9d220";
             /* TESLA_CLIENT_ID=81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c2ef2106796384 TESLA_CLIENT_SECRET=c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3  --> https://pastebin.com/pS7Z6yyP*/
             try {
+                username                = WebUtility.UrlEncode(username);
+                pass                    = WebUtility.UrlEncode(pass);
                 string url              = $"https://owner-api.teslamotors.com/oauth/token?grant_type=password&client_id={client_id}&client_secret={client_secret}&email={username}&password={pass}";
                 string result           = await CallUrl(url, "POST", false);
                 LoginResponse           = SerializeTool.DeSerializeJson<LoginResponse>(result);
                 if ( String.IsNullOrEmpty(LoginResponse.access_token) ) throw new Exception("access_token LEER!");
                 TessTools.SaveResponse(LoginResponse);
+
+                myCarId = null; // Can change for other user! Need to reset after login.
                 return new TessApiResult();
             }
             catch ( Exception ex ) {
