@@ -189,7 +189,7 @@ namespace TessApi {
         public async Task<TessApiResult> GetCarInfo(bool loadFromDisk) {
             this.MyCarData = null;
             try {
-                CarDataResponse cdr;
+                CarDataResponse cdr = null;
                 if ( loadFromDisk ) {
                     cdr = TessTools.LoadResponse<CarDataResponse>(out DiskDataDate);
                     Log.Debug("GetCarInfo - loadFromDisk cdr Null:" + ( cdr == null ));
@@ -201,11 +201,14 @@ namespace TessApi {
 
                 if ( MyCar == null ) return new TessApiResult(false, "No Car Data");
 
-                string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{myCarId.Value}/vehicle_data";
-                string result           = await CallUrl(url, "GET");
-                cdr                     = SerializeTool.DeSerializeJson<CarDataResponse>(result);
-                MyCarData               = cdr.response;
-                TessTools.SaveResponse(cdr);
+                if ( !loadFromDisk ) {
+                    string url      = $"https://owner-api.teslamotors.com/api/1/vehicles/{myCarId.Value}/vehicle_data";
+                    string result   = await CallUrl(url, "GET");
+                    cdr             = SerializeTool.DeSerializeJson<CarDataResponse>(result);
+                }
+
+                MyCarData               = cdr?.response;
+                if ( cdr != null ) TessTools.SaveResponse(cdr);
                 return new TessApiResult();
             }
             catch ( Exception ex ) {
