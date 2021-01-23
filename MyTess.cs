@@ -44,7 +44,10 @@ namespace TessApi {
         }
 
         public MyTess() {
-            LoginResponse   = TessTools.LoadResponse<LoginResponse>(out _);
+        }
+
+        public void LoadLogin() {
+            LoginResponse   = TessTools.LoadResponse<LoginResponse>(out _, true);
         }
 
         public void SetCarId(long cId) {
@@ -261,7 +264,7 @@ namespace TessApi {
                 string result           = await CallUrl(url, "POST", false);
                 LoginResponse           = SerializeTool.DeSerializeJson<LoginResponse>(result);
                 if ( String.IsNullOrEmpty(LoginResponse.access_token) ) throw new Exception("access_token LEER!");
-                TessTools.SaveResponse(LoginResponse);
+                TessTools.SaveResponse(LoginResponse, null, true);
 
                 myCarId = null; // Can change for other user! Need to reset after login.
                 return new TessApiResult();
