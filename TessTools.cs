@@ -51,7 +51,9 @@ namespace TessApi {
         }
 
         private static string GetSavedResponseFilePath(Type t, string add) {
-            string filename             = t.Name + add;
+            string filename                             = t.Name;
+            if ( !String.IsNullOrEmpty(add) ) filename  += "_" + add;
+
             string savedResponseFolder  = Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetName().CodeBase);
             Uri uri                     = new Uri(savedResponseFolder);
             savedResponseFolder         = uri.LocalPath;
@@ -59,7 +61,6 @@ namespace TessApi {
 
             if ( !Directory.Exists(savedResponseFolder) ) {
                 Directory.CreateDirectory(savedResponseFolder);
-#warning Info?
             }
 
             return Path.Combine(savedResponseFolder, "Tess_" + filename + ".json");

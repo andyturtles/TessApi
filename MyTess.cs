@@ -149,7 +149,14 @@ namespace TessApi {
             return await SendCommand("window_control", cmdTxt);
         }
 
-        public enum SeatHeaterNumber {
+        public async Task<TessApiResult> TriggerHomelink(double lat, double lon) {
+            string latStr = lat.ToString("0.00");
+            string lonStr = lon.ToString("0.00");
+            string cmdTxt = $"lat={latStr}&lon={lonStr}";
+            return await SendCommand("trigger_homelink", cmdTxt);
+        }
+
+    public enum SeatHeaterNumber {
             Driver      = 0,
             Passenger   = 1,
             Rear_left   = 2,
