@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net;
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -137,22 +137,28 @@ namespace TessApi {
             return await SendCommand("set_preconditioning_max", cmdTxt);
         }
 
-#warning Coordinates!!!
+        private string GetCoordinatesString(double lat, double lon) {
+            NumberFormatInfo nfi        = new NumberFormatInfo();
+            nfi.NumberDecimalSeparator  = ".";
+            nfi.NumberGroupSeparator    = "";
+            string latStr               = lat.ToString(nfi);
+            string lonStr               = lon.ToString(nfi);
+            string coordStr             = $"lat={latStr}&lon={lonStr}";
+            return coordStr;
+        }
 
-        public async Task<TessApiResult> CloseWindows() {
-            string cmdTxt = $"command=close&lat=50.274013&lon=8.37771";
+        public async Task<TessApiResult> CloseWindows(double lat, double lon) {
+            string cmdTxt = $"command=close&" + GetCoordinatesString(lat, lon);
             return await SendCommand("window_control", cmdTxt);
         }
 
-        public async Task<TessApiResult> VentWindows() {
-            string cmdTxt = $"command=vent&lat=50.274013&lon=8.37771";
+        public async Task<TessApiResult> VentWindows(double lat, double lon) {
+            string cmdTxt = $"command=vent&" + GetCoordinatesString(lat, lon);
             return await SendCommand("window_control", cmdTxt);
         }
 
         public async Task<TessApiResult> TriggerHomelink(double lat, double lon) {
-            string latStr = lat.ToString("0.00");
-            string lonStr = lon.ToString("0.00");
-            string cmdTxt = $"lat={latStr}&lon={lonStr}";
+            string cmdTxt = GetCoordinatesString(lat, lon);
             return await SendCommand("trigger_homelink", cmdTxt);
         }
 
@@ -261,16 +267,12 @@ namespace TessApi {
         }
 
         public async Task<TessApiResult> Login(string username, string pass) {
-            string client_id        = "e4a9949fcfa04068f59abb5a658f2bac0a3428e4652315490b659d5ab3f35a9e";
-            string client_secret    = "c75f14bbadc8bee3a7594412c31416f8300256d7668ea7e6e7f06727bfb9d220";
-            /* TESLA_CLIENT_ID=81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c2ef2106796384 TESLA_CLIENT_SECRET=c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3  --> https://pastebin.com/pS7Z6yyP*/
             try {
-                username                = WebUtility.UrlEncode(username);
-                pass                    = WebUtility.UrlEncode(pass);
-                string url              = $"https://owner-api.teslamotors.com/oauth/token?grant_type=password&client_id={client_id}&client_secret={client_secret}&email={username}&password={pass}";
-                string result           = await CallUrl(url, "POST", false);
-                LoginResponse           = SerializeTool.DeSerializeJson<LoginResponse>(result);
-                if ( String.IsNullOrEmpty(LoginResponse.access_token) ) throw new Exception("access_token LEER!");
+                TessApiLogin login  = new TessApiLogin();
+                login.DoLogin(username, pass);
+                LoginResponse       = login.LoginResponse;
+
+                if ( String.IsNullOrEmpty(LoginResponse?.access_token) ) throw new Exception("access_token LEER!");
                 TessTools.SaveResponse(LoginResponse, null, true);
 
                 myCarId = null; // Can change for other user! Need to reset after login.
