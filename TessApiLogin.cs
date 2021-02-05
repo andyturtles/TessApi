@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Web;
 using System.Web.Script.Serialization;
 using aBasics;
@@ -27,11 +28,16 @@ namespace TessApi {
         private string code_challenge_SHA256;
         private string code_challenge;
         private string state;
+        private string cookie;
+        private string transaction_id;
 
-#warning ggf. mal async machen, aber erstmal läuft es ;)
-
-        public void DoLogin(string user, string pw) {
-            string cookie = "";
+        /// <summary>
+        /// Does the login.
+        /// </summary>
+        /// <param name="user">The user.</param>
+        /// <param name="pw">The password.</param>
+        /// <returns>true: login OK / finished; false: MFA needed!</returns>
+        public async Task<bool> DoLogin(string user, string pw) {
             MatchCollection m;
 
             //string tempToken = UpdateTeslaTokenFromRefreshToken();
@@ -68,7 +74,7 @@ namespace TessApi {
                     b.Query         = q.ToString();
                     string url      = b.ToString();
 
-                    HttpResponseMessage result  = client.GetAsync(url).Result;
+                    HttpResponseMessage result  = await client.GetAsync(url);
                     string resultContent        = result.Content.ReadAsStringAsync().Result;
                     m                           = Regex.Matches(resultContent, "type=\\\"hidden\\\" name=\\\"(.*?)\\\" value=\\\"(.*?)\\\"");
                     IEnumerable<string> cookies = result.Headers.SingleOrDefault(header => header.Key == "Set-Cookie").Value;
@@ -80,12 +86,11 @@ namespace TessApi {
                 }
             }
 
-            GetTokenAsync2(cookie, m, user, pw);
+            return await GetTokenAsync2(m, user, pw);
         }
 
-        private void GetTokenAsync2(string cookie, MatchCollection mc, string user, string pw) {
+        private async Task<bool> GetTokenAsync2(MatchCollection mc, string user, string pw) {
             int length = 0;
-            string transaction_id = "";
 
             Dictionary<string, string> d = new Dictionary<string, string>();
             foreach ( Match m in mc ) {
@@ -128,19 +133,13 @@ namespace TessApi {
 
                         var temp = content.ReadAsStringAsync().Result;
 
-                        HttpResponseMessage result  = client.PostAsync(url, content).Result;
+                        HttpResponseMessage result  = await client.PostAsync(url, content);
                         string resultContent        = result.Content.ReadAsStringAsync().Result;
                         Uri location                = result.Headers.Location;
-                        bool isMFA                  = false;
 
                         if ( result.StatusCode != HttpStatusCode.Redirect ) {
                             if ( result.StatusCode == HttpStatusCode.OK && resultContent.Contains("passcode") ) {
-                                isMFA   = true;
-                                code    = WaitForMFA_Code(cookie, transaction_id);
-                                if ( String.IsNullOrEmpty(code) ) {
-                                    Log.Warning("WaitForMFA_Code - Code Empty");
-                                    return;
-                                }
+                                return false; // Signalisieren das wir mit MFA weiter machen müssen
                             }
                             else {
                                 Log.Error("GetTokenAsync2 HttpStatus: " + result.StatusCode.ToString() + " / Expecting: Redirect !!!");
@@ -148,24 +147,26 @@ namespace TessApi {
                             }
                         }
 
-                        if ( !isMFA ) {
-                            if ( location == null ) Log.Error("GetTokenAsync2 Redirect Location = null!!! Wrong credentials?");
-
-                            if ( result.StatusCode == HttpStatusCode.Redirect && location != null ) {
-                                code = HttpUtility.ParseQueryString(location.Query).Get("code");
-                            }
-                            else {
-                                Log.Warning("GetTokenAsync2 - result.StatusCode: " + result.StatusCode);
-                            }
+                        // Ohne MFA
+                        if ( location == null ) throw new Exception("GetTokenAsync2 Redirect Location = null!!! Wrong credentials?");
+                        if ( result.StatusCode == HttpStatusCode.Redirect && ( location != null ) ) {
+                            code = HttpUtility.ParseQueryString(location.Query).Get("code");
+                            await GetTokenAsync3(code);
+                            return true;
                         }
+                        else throw new Exception("GetTokenAsync2 - result.StatusCode: " + result.StatusCode);
                     }
                 }
             }
-
-            GetTokenAsync3(code);
         }
 
-        private void GetTokenAsync3(string code) {
+        internal async Task ContinueLoginAfterMfa(string mfaCode) {
+            string code = DoMFA_Code(mfaCode);
+            await GetTokenAsync3(code);
+            return;
+        }
+
+        private async Task GetTokenAsync3(string code) {
             var d = new Dictionary<string, string>();
             d.Add("grant_type", "authorization_code");
             d.Add("client_id", "ownerapi");
@@ -180,7 +181,10 @@ namespace TessApi {
                 client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
 
                 using ( var content = new StringContent(json, Encoding.UTF8, "application/json") ) {
-                    HttpResponseMessage result  = client.PostAsync(SSO_URI + "/oauth2/v3/token", content).Result;
+                    HttpResponseMessage result  = await client.PostAsync(SSO_URI + "/oauth2/v3/token", content);
+
+                    if ( result.StatusCode != HttpStatusCode.OK ) throw new Exception("authorization_code - Error: " + result.StatusCode);
+
                     string resultContent        = result.Content.ReadAsStringAsync().Result;
                     dynamic jsonResult          = new JavaScriptSerializer().DeserializeObject(resultContent);
                     //RefreshToken                = jsonResult["refresh_token"];
@@ -188,10 +192,10 @@ namespace TessApi {
                 }
             }
 
-            GetTokenAsync4Async(tmpAccessToken);
+            await GetTokenAsync4Async(tmpAccessToken);
         }
 
-        private void GetTokenAsync4Async(string tmpAccessToken) {
+        private async Task GetTokenAsync4Async(string tmpAccessToken) {
             var d = new Dictionary<string, string>();
             d.Add("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer");
             d.Add("client_id", TESLA_CLIENT_ID);
@@ -204,7 +208,7 @@ namespace TessApi {
                 client.DefaultRequestHeaders.Add("Authorization", "Bearer " + tmpAccessToken);
 
                 using ( var content = new StringContent(json, Encoding.UTF8, "application/json") ) {
-                    HttpResponseMessage result  = client.PostAsync("https://owner-api.teslamotors.com/oauth/token", content).Result;
+                    HttpResponseMessage result  = await client.PostAsync("https://owner-api.teslamotors.com/oauth/token", content);
                     string resultContent        = result.Content.ReadAsStringAsync().Result;
                     Log.Debug("HttpStatus: " + result.StatusCode.ToString());
 

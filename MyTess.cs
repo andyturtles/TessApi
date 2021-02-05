@@ -16,6 +16,8 @@ namespace TessApi {
     /// </summary>
     public class MyTess {
 
+        private TessApiLogin tessApiLogin;
+
         private long? myCarId;
 
         public LoginResponse LoginResponse { get; internal set; }
@@ -266,22 +268,42 @@ namespace TessApi {
             }
         }
 
-        public async Task<TessApiResult> Login(string username, string pass) {
+        public async Task<TessApiLoginResult> Login(string username, string pass) {
             try {
-                TessApiLogin login  = new TessApiLogin();
-                login.DoLogin(username, pass);
-                LoginResponse       = login.LoginResponse;
+                tessApiLogin        = new TessApiLogin();
+                bool loginFinished  = await tessApiLogin.DoLogin(username, pass);
+                if ( !loginFinished ) return new TessApiLoginResult(true); // MFA required!
 
-                if ( String.IsNullOrEmpty(LoginResponse?.access_token) ) throw new Exception("access_token LEER!");
-                TessTools.SaveResponse(LoginResponse, null, true);
-
-                myCarId = null; // Can change for other user! Need to reset after login.
-                return new TessApiResult();
+                HandleLoginSuccess();
+                return new TessApiLoginResult(false);
             }
             catch ( Exception ex ) {
                 Log.Error("MyTess.Login", ex);
-                return new TessApiResult(ex);
+                return new TessApiLoginResult(ex);
             }
+        }
+
+        public async Task<TessApiLoginResult> ContiueMfaLogin(string mfaCode) {
+            try {
+                if ( tessApiLogin == null ) throw new Exception("No Login Object!");
+                await tessApiLogin.ContinueLoginAfterMfa(mfaCode);
+
+                HandleLoginSuccess();
+                return new TessApiLoginResult(false);
+            }
+            catch ( Exception ex ) {
+                Log.Error("MyTess.ContiueMfaLogin", ex);
+                return new TessApiLoginResult(ex);
+            }
+        }
+
+        private void HandleLoginSuccess() {
+            LoginResponse   = tessApiLogin.LoginResponse;
+            if ( String.IsNullOrEmpty(LoginResponse?.access_token) ) throw new Exception("access_token LEER!");
+            TessTools.SaveResponse(LoginResponse, null, true);
+
+            tessApiLogin = null; // brauchen wir jetzt nicht mehr!
+            myCarId = null; // Can change for other user! Need to reset after login.
         }
 
         #endregion State / Wakeup etc. ...
