@@ -54,6 +54,8 @@
     <Compile Include="JsonData\LoginResponse.cs" />
     <Compile Include="MyTess.cs" />
     <Compile Include="JsonData\ProductResponse.cs" />
+    <Compile Include="TessClientHandler.cs" />
+    <Compile Include="TessHttpClient.cs" />
     <Compile Include="TessTools.cs" />
     <Compile Include="JsonData\WakeUpResponse.cs" />
   </ItemGroup>

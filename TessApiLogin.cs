@@ -16,8 +16,7 @@ namespace TessApi {
 
     public partial class TessApiLogin {
 
-        private const string SSO_URI    = "https://auth.tesla.com";
-        private const string USER_AGENT = "Tess4Windows"; // oder das? "TeslaLogger"
+        internal const string SSO_URI        = "https://auth.tesla.com";
 
         internal static readonly string TESLA_CLIENT_ID      = "81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c2ef2106796384";
         internal static readonly string TESLA_CLIENT_SECRET  = "c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3";
@@ -39,10 +38,6 @@ namespace TessApi {
         /// <returns>true: login OK / finished; false: MFA needed!</returns>
         public async Task<bool> DoLogin(string user, string pw) {
             MatchCollection m;
-
-            //string tempToken = UpdateTeslaTokenFromRefreshToken();
-            //if ( !String.IsNullOrEmpty(tempToken) ) return tempToken;
-
             if ( String.IsNullOrEmpty(user) || String.IsNullOrEmpty(pw) ) throw new Exception("NO Credentials");
 
             code_verifier           = RandomString(86);
@@ -50,37 +45,39 @@ namespace TessApi {
             code_challenge          = Convert.ToBase64String(Encoding.Default.GetBytes(code_challenge_SHA256));
             state                   = RandomString(20);
 
-            using ( HttpClient client = new HttpClient() ) {
-                client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
+            using ( TessHttpClient client = new TessHttpClient(new TessClientHandler(false, null)) ) {
+                client.Timeout = TimeSpan.FromSeconds(30);
+
                 Dictionary<string, string> values = new Dictionary<string, string> {
-                            { "client_id", "ownerapi" },
-                            { "code_challenge", code_challenge },
-                            { "code_challenge_method", "S256" },
-                            { "redirect_uri", SSO_URI + "/void/callback" },
-                            { "response_type", "code" },
-                            { "scope", "openid email offline_access" },
-                            { "state", state }
-                        };
+                    { "client_id", "ownerapi" },
+                    { "code_challenge", code_challenge },
+                    { "code_challenge_method", "S256" },
+                    { "redirect_uri", SSO_URI + "/void/callback" },
+                    { "response_type", "code" },
+                    { "scope", "openid email offline_access" },
+                    { "state", state },
+                    { "login_hint", "" }
+                };
 
                 string json = new JavaScriptSerializer().Serialize(values);
 
                 using ( StringContent content = new StringContent(json.ToString(), Encoding.UTF8, "application/json") ) {
-                    UriBuilder b    = new UriBuilder(SSO_URI + "/oauth2/v3/authorize");
-                    b.Port          = -1;
-                    var q           = HttpUtility.ParseQueryString(b.Query);
+                    UriBuilder b = new UriBuilder(SSO_URI + "/oauth2/v3/authorize");
+                    b.Port = -1;
+                    var q = HttpUtility.ParseQueryString(b.Query);
                     foreach ( var v in values ) {
-                        q[v.Key]    = v.Value;
+                        q[v.Key] = v.Value;
                     }
-                    b.Query         = q.ToString();
-                    string url      = b.ToString();
+                    b.Query = q.ToString();
+                    string url = b.ToString();
 
-                    HttpResponseMessage result  = await client.GetAsync(url);
-                    string resultContent        = result.Content.ReadAsStringAsync().Result;
-                    m                           = Regex.Matches(resultContent, "type=\\\"hidden\\\" name=\\\"(.*?)\\\" value=\\\"(.*?)\\\"");
+                    HttpResponseMessage result = await client.GetAsync(url);
+                    string resultContent = result.Content.ReadAsStringAsync().Result;
+                    m = Regex.Matches(resultContent, "type=\\\"hidden\\\" name=\\\"(.*?)\\\" value=\\\"(.*?)\\\"");
                     IEnumerable<string> cookies = result.Headers.SingleOrDefault(header => header.Key == "Set-Cookie").Value;
-                    cookie                      = cookies.ToList()[0];
-                    cookie                      = cookie.Substring(0, cookie.IndexOf(" "));
-                    cookie                      = cookie.Trim();
+                    cookie = cookies.ToList()[0];
+                    cookie = cookie.Substring(0, cookie.IndexOf(" "));
+                    cookie = cookie.Trim();
 
                     if ( resultContent.Contains("authorization_required") ) throw new Exception("Wrong Credentials");
                 }
@@ -108,54 +105,47 @@ namespace TessApi {
 
             string code = "";
 
-            using ( HttpClientHandler ch = new HttpClientHandler() ) {
-                ch.AllowAutoRedirect = false;
-                ch.UseCookies = false;
-                using ( HttpClient client = new HttpClient(ch) ) {
-                    // client.Timeout = TimeSpan.FromSeconds(10);
-                    client.BaseAddress = new Uri(SSO_URI);
-                    client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
-                    client.DefaultRequestHeaders.Add("Cookie", cookie);
+            using ( HttpClient client = new TessHttpClient(new TessClientHandler(false, false)) ) {
+                client.DefaultRequestHeaders.Add("Cookie", cookie);
 
-                    using ( FormUrlEncodedContent content = new FormUrlEncodedContent(d) ) {
-                        UriBuilder b                = new UriBuilder(SSO_URI + "/oauth2/v3/authorize");
-                        b.Port                      = -1;
-                        var q                       = HttpUtility.ParseQueryString(b.Query);
-                        q["client_id"]              = "ownerapi";
-                        q["code_challenge"]         = code_challenge;
-                        q["code_challenge_method"]  = "S256";
-                        q["redirect_uri"]           = SSO_URI + "/void/callback";
-                        q["response_type"]          = "code";
-                        q["scope"]                  = "openid email offline_access";
-                        q["state"]                  = state;
-                        b.Query                     = q.ToString();
-                        string url                  = b.ToString();
+                using ( FormUrlEncodedContent content = new FormUrlEncodedContent(d) ) {
+                    UriBuilder b                = new UriBuilder(SSO_URI + "/oauth2/v3/authorize");
+                    b.Port                      = -1;
+                    var q                       = HttpUtility.ParseQueryString(b.Query);
+                    q["client_id"]              = "ownerapi";
+                    q["code_challenge"]         = code_challenge;
+                    q["code_challenge_method"]  = "S256";
+                    q["redirect_uri"]           = SSO_URI + "/void/callback";
+                    q["response_type"]          = "code";
+                    q["scope"]                  = "openid email offline_access";
+                    q["state"]                  = state;
+                    b.Query                     = q.ToString();
+                    string url                  = b.ToString();
 
-                        var temp = content.ReadAsStringAsync().Result;
+                    var temp = content.ReadAsStringAsync().Result;
 
-                        HttpResponseMessage result  = await client.PostAsync(url, content);
-                        string resultContent        = result.Content.ReadAsStringAsync().Result;
-                        Uri location                = result.Headers.Location;
+                    HttpResponseMessage result  = await client.PostAsync(url, content);
+                    string resultContent        = result.Content.ReadAsStringAsync().Result;
+                    Uri location                = result.Headers.Location;
 
-                        if ( result.StatusCode != HttpStatusCode.Redirect ) {
-                            if ( result.StatusCode == HttpStatusCode.OK && resultContent.Contains("passcode") ) {
-                                return false; // Signalisieren das wir mit MFA weiter machen müssen
-                            }
-                            else {
-                                Log.Error("GetTokenAsync2 HttpStatus: " + result.StatusCode.ToString() + " / Expecting: Redirect !!!");
-                                throw new Exception("GetToken: " + result.StatusCode);
-                            }
+                    if ( result.StatusCode != HttpStatusCode.Redirect ) {
+                        if ( result.StatusCode == HttpStatusCode.OK && resultContent.Contains("passcode") ) {
+                            return false; // Signalisieren das wir mit MFA weiter machen müssen
                         }
-
-                        // Ohne MFA
-                        if ( location == null ) throw new Exception("GetTokenAsync2 Redirect Location = null!!! Wrong credentials?");
-                        if ( result.StatusCode == HttpStatusCode.Redirect && ( location != null ) ) {
-                            code = HttpUtility.ParseQueryString(location.Query).Get("code");
-                            await GetTokenAsync3(code);
-                            return true;
+                        else {
+                            Log.Error("GetTokenAsync2 HttpStatus: " + result.StatusCode.ToString() + " / Expecting: Redirect !!!");
+                            throw new Exception("GetToken: " + result.StatusCode);
                         }
-                        else throw new Exception("GetTokenAsync2 - result.StatusCode: " + result.StatusCode);
                     }
+
+                    // Ohne MFA
+                    if ( location == null ) throw new Exception("GetTokenAsync2 Redirect Location = null!!! Wrong credentials?");
+                    if ( result.StatusCode == HttpStatusCode.Redirect && ( location != null ) ) {
+                        code = HttpUtility.ParseQueryString(location.Query).Get("code");
+                        await GetTokenAsync3(code);
+                        return true;
+                    }
+                    else throw new Exception("GetTokenAsync2 - result.StatusCode: " + result.StatusCode);
                 }
             }
         }
@@ -176,19 +166,17 @@ namespace TessApi {
 
             string json = new JavaScriptSerializer().Serialize(d);
             string tmpAccessToken;
-            using ( HttpClient client = new HttpClient() ) {
-                client.BaseAddress = new Uri(SSO_URI);
-                client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
 
-                using ( var content = new StringContent(json, Encoding.UTF8, "application/json") ) {
-                    HttpResponseMessage result  = await client.PostAsync(SSO_URI + "/oauth2/v3/token", content);
+            using ( HttpClient client = new TessHttpClient(new TessClientHandler(null, null)) ) {
+                using ( StringContent content = new StringContent(json, Encoding.UTF8, "application/json") ) {
+                    HttpResponseMessage result = await client.PostAsync(SSO_URI + "/oauth2/v3/token", content);
 
                     if ( result.StatusCode != HttpStatusCode.OK ) throw new Exception("authorization_code - Error: " + result.StatusCode);
 
-                    string resultContent        = result.Content.ReadAsStringAsync().Result;
-                    dynamic jsonResult          = new JavaScriptSerializer().DeserializeObject(resultContent);
+                    string resultContent    = result.Content.ReadAsStringAsync().Result;
+                    dynamic jsonResult      = new JavaScriptSerializer().DeserializeObject(resultContent);
                     //RefreshToken                = jsonResult["refresh_token"];
-                    tmpAccessToken       = jsonResult["access_token"];
+                    tmpAccessToken          = jsonResult["access_token"];
                 }
             }
 
@@ -202,9 +190,9 @@ namespace TessApi {
             d.Add("client_secret", TESLA_CLIENT_SECRET);
             string json = new JavaScriptSerializer().Serialize(d);
 
-            using ( HttpClient client = new HttpClient() ) {
+            using ( HttpClient client = new TessHttpClient(new TessClientHandler(null, null)) ) {
                 client.Timeout = TimeSpan.FromSeconds(5);
-                client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
+
                 client.DefaultRequestHeaders.Add("Authorization", "Bearer " + tmpAccessToken);
 
                 using ( var content = new StringContent(json, Encoding.UTF8, "application/json") ) {
@@ -212,7 +200,7 @@ namespace TessApi {
                     string resultContent        = result.Content.ReadAsStringAsync().Result;
                     Log.Debug("HttpStatus: " + result.StatusCode.ToString());
 
-                    LoginResponse           =  SerializeTool.DeSerializeJson<LoginResponse>(resultContent);
+                    LoginResponse = SerializeTool.DeSerializeJson<LoginResponse>(resultContent);
                 }
             }
         }

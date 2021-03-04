@@ -283,7 +283,7 @@ namespace TessApi {
             }
         }
 
-        public async Task<TessApiLoginResult> ContiueMfaLogin(string mfaCode) {
+        public async Task<TessApiLoginResult> ContinueMfaLogin(string mfaCode) {
             try {
                 if ( tessApiLogin == null ) throw new Exception("No Login Object!");
                 await tessApiLogin.ContinueLoginAfterMfa(mfaCode);
@@ -292,7 +292,7 @@ namespace TessApi {
                 return new TessApiLoginResult(false);
             }
             catch ( Exception ex ) {
-                Log.Error("MyTess.ContiueMfaLogin", ex);
+                Log.Error("MyTess.ContinueMfaLogin", ex);
                 return new TessApiLoginResult(ex);
             }
         }
