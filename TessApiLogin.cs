@@ -231,57 +231,56 @@ namespace TessApi {
             return val;
         }
 
-#warning TODO: Refresh token?
+        //public async Task UpdateTeslaTokenFromRefreshToken() {
+        //    string refresh_token = LoginResponse.refresh_token;
 
-        /* ******************
+        //    if ( String.IsNullOrEmpty(refresh_token) ) {
+        //        Log.Warning("No Refresh Token");
+        //        return;
+        //    }
 
-        private string UpdateTeslaTokenFromRefreshToken() {
-            string refresh_token = car.dbHelper.GetRefreshToken();
+        //    Log.Info("Update Tesla Token From Refresh Token!");
 
-            if ( String.IsNullOrEmpty(refresh_token) ) {
-                Log("No Refresh Token");
-                return "";
-            }
+        //                     //https://auth.tesla.com
+        //    string authHost = "https://auth.tesla.com";
+        //    if ( LoginResponse.access_token.StartsWith("cn-") ) authHost = "https://auth.tesla.cn";
 
-            try {
-                Log("Update Tesla Token From Refresh Token!");
-                var d = new Dictionary<string, string>();
-                d.Add("grant_type", "refresh_token");
-                d.Add("client_id", "ownerapi");
-                d.Add("refresh_token", refresh_token);
-                d.Add("scope", "openid email offline_access");
+        //    try {
+        //        var d = new Dictionary<string, string>();
+        //        d.Add("grant_type", "refresh_token");
+        //        d.Add("client_id", "ownerapi");
+        //        d.Add("refresh_token", refresh_token);
 
-                string json = new JavaScriptSerializer().Serialize(d);
+        //        string json = new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(d);
 
-                using ( HttpClient client = new HttpClient() ) {
-                    client.Timeout = TimeSpan.FromSeconds(5);
-                    client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
+        //        using ( TessClientHandler handler = new TessClientHandler(null, null) ) {
 
-                    using ( var content = new StringContent(json, Encoding.UTF8, "application/json") ) {
-                        HttpResponseMessage result = client.PostAsync(SSO_URI + "/oauth2/v3/token", content).Result;
-                        string resultContent = result.Content.ReadAsStringAsync().Result;
+        //            DateTime start = DateTime.UtcNow;
 
-                        car.Log("HttpStatus: " + result.StatusCode.ToString());
+        //            using ( TessHttpClient client = new TessHttpClient(handler) ) {
+        //                client.Timeout = TimeSpan.FromSeconds(30);
 
-                        dynamic jsonResult = new JavaScriptSerializer().DeserializeObject(resultContent);
-                        string access_token = jsonResult["access_token"];
+        //                using ( var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") ) {
+        //                    HttpResponseMessage result = client.PostAsync(authHost + "/oauth2/v3/token", content).Result;
+        //                    string resultContent = result.Content.ReadAsStringAsync().Result;
 
-                        string new_refresh_token = jsonResult["refresh_token"];
-                        if ( new_refresh_token == refresh_token )
-                            Log("refresh_token not changed");
-                        else
-                            car.dbHelper.UpdateRefreshToken(new_refresh_token);
+        //                    Log.Info("HttpStatus: " + result.StatusCode.ToString());
 
-                        return GetTokenAsync4Async(access_token);
-                    }
-                }
-            }
-            catch ( Exception ex ) {
-                car.Log(ex.ToString());
-            }
-            return "";
-        }
+        //                    dynamic jsonResult = new JavaScriptSerializer().DeserializeObject(resultContent);
+        //                    string access_token = jsonResult["access_token"];
 
-         ************************* */
+        //                    string new_refresh_token = jsonResult["refresh_token"];
+        //                    if ( new_refresh_token == refresh_token ) Log.Info("refresh_token not changed");
+        //                    else LoginResponse.refresh_token = new_refresh_token;
+
+        //                    await GetTokenAsync4Async(access_token);
+        //                }
+        //            }
+        //        }
+        //    }
+        //    catch ( Exception ex ) {
+        //        Log.Error("UpdateTeslaTokenFromRefreshToken", ex);
+        //    }
+        //}
     }
 }

@@ -48,8 +48,19 @@ namespace TessApi {
         public MyTess() {
         }
 
-        public void LoadLogin() {
+        public async Task LoadLogin() {
             LoginResponse   = TessTools.LoadResponse<LoginResponse>(out _, true);
+
+            //if ( true ) {
+            //    if ( tessApiLogin == null ) {
+            //        tessApiLogin = new TessApiLogin();
+            //        tessApiLogin.LoginResponse = LoginResponse;
+            //    }
+            //    await tessApiLogin.UpdateTeslaTokenFromRefreshToken();
+            //    //LoginResponse tmpLoginResponse = await TessApiLogin.UpdateTeslaTokenFromRefreshToken(LoginResponse);
+            //    //if ( tmpLoginResponse != null ) LoginResponse = tmpLoginResponse;
+            //    //// todo save?
+            //}
         }
 
         public void SetCarId(long cId) {
