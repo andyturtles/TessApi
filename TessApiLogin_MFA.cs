@@ -29,7 +29,7 @@ namespace TessApi {
             using ( HttpClient client = new TessHttpClient(new TessClientHandler(null, false)) ) {
                 client.DefaultRequestHeaders.Add("Cookie", cookie);
 
-                UriBuilder b = new UriBuilder(SSO_URI + "/oauth2/v3/authorize/mfa/factors");
+                UriBuilder b = new UriBuilder(authHost + "/oauth2/v3/authorize/mfa/factors");
                 b.Port = -1;
 
                 var q = HttpUtility.ParseQueryString(b.Query);
@@ -65,7 +65,7 @@ namespace TessApi {
                 string json = new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(d);
 
                 using ( var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") ) {
-                    HttpResponseMessage result  = client.PostAsync(SSO_URI + "/oauth2/v3/authorize/mfa/verify", content).Result;
+                    HttpResponseMessage result  = client.PostAsync(authHost + "/oauth2/v3/authorize/mfa/verify", content).Result;
                     string resultContent        = result.Content.ReadAsStringAsync().Result;
                     try {
                         dynamic jsonResult  = new JavaScriptSerializer().DeserializeObject(resultContent);
@@ -90,13 +90,13 @@ namespace TessApi {
                 d.Add("transaction_id", transaction_id);
 
                 using ( FormUrlEncodedContent content = new FormUrlEncodedContent(d) ) {
-                    UriBuilder b = new UriBuilder(SSO_URI + "/oauth2/v3/authorize");
+                    UriBuilder b = new UriBuilder(authHost + "/oauth2/v3/authorize");
                     b.Port = -1;
                     var q = HttpUtility.ParseQueryString(b.Query);
                     q.Add("client_id", "ownerapi");
                     q.Add("code_challenge", code_challenge);
                     q.Add("code_challenge_method", "S256");
-                    q.Add("redirect_uri", SSO_URI + "/void/callback");
+                    q.Add("redirect_uri", authHost + "/void/callback");
                     q.Add("response_type", "code");
                     q.Add("scope", "openid email offline_access");
                     q.Add("state", state);

@@ -16,7 +16,8 @@ namespace TessApi {
 
     public partial class TessApiLogin {
 
-        internal const string SSO_URI        = "https://auth.tesla.com";
+        internal const string   SSO_URI     = "https://auth.tesla.com";
+        private string          authHost    = SSO_URI;
 
         internal static readonly string TESLA_CLIENT_ID      = "81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c2ef2106796384";
         internal static readonly string TESLA_CLIENT_SECRET  = "c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3";
@@ -29,6 +30,7 @@ namespace TessApi {
         private string state;
         private string cookie;
         private string transaction_id;
+        private Uri referrer;
 
         /// <summary>
         /// Does the login.
@@ -52,7 +54,7 @@ namespace TessApi {
                     { "client_id", "ownerapi" },
                     { "code_challenge", code_challenge },
                     { "code_challenge_method", "S256" },
-                    { "redirect_uri", SSO_URI + "/void/callback" },
+                    { "redirect_uri", authHost + "/void/callback" },
                     { "response_type", "code" },
                     { "scope", "openid email offline_access" },
                     { "state", state },
@@ -62,7 +64,7 @@ namespace TessApi {
                 string json = new JavaScriptSerializer().Serialize(values);
 
                 using ( StringContent content = new StringContent(json.ToString(), Encoding.UTF8, "application/json") ) {
-                    UriBuilder b = new UriBuilder(SSO_URI + "/oauth2/v3/authorize");
+                    UriBuilder b = new UriBuilder(authHost + "/oauth2/v3/authorize");
                     b.Port = -1;
                     var q = HttpUtility.ParseQueryString(b.Query);
                     foreach ( var v in values ) {
@@ -73,6 +75,7 @@ namespace TessApi {
 
                     HttpResponseMessage result = await client.GetAsync(url);
                     string resultContent = result.Content.ReadAsStringAsync().Result;
+
                     m = Regex.Matches(resultContent, "type=\\\"hidden\\\" name=\\\"(.*?)\\\" value=\\\"(.*?)\\\"");
                     IEnumerable<string> cookies = result.Headers.SingleOrDefault(header => header.Key == "Set-Cookie").Value;
                     cookie = cookies.ToList()[0];
@@ -80,6 +83,14 @@ namespace TessApi {
                     cookie = cookie.Trim();
 
                     if ( resultContent.Contains("authorization_required") ) throw new Exception("Wrong Credentials");
+
+                    if ( result.StatusCode == HttpStatusCode.RedirectMethod ) {
+                        if ( result.Headers.Location.Host == "auth.tesla.cn" && authHost != "https://auth.tesla.cn" ) {
+                            authHost = "https://auth.tesla.cn";
+                            Log.Info("Use chinese auth server: auth.tesla.cn!");
+                            return await DoLogin(user, pw);
+                        }
+                    }
                 }
             }
 
@@ -93,6 +104,8 @@ namespace TessApi {
             foreach ( Match m in mc ) {
                 string key      = m.Groups[1].Value;
                 string value    = m.Groups[2].Value;
+                if ( d.ContainsKey(key) ) continue;
+                if ( key.Contains("cancel") ) continue;
                 d.Add(key, value);
                 if ( key == "transaction_id" ) transaction_id = value;
                 length += m.Groups[1].Value.Length;
@@ -109,18 +122,20 @@ namespace TessApi {
                 client.DefaultRequestHeaders.Add("Cookie", cookie);
 
                 using ( FormUrlEncodedContent content = new FormUrlEncodedContent(d) ) {
-                    UriBuilder b                = new UriBuilder(SSO_URI + "/oauth2/v3/authorize");
+                    UriBuilder b                = new UriBuilder(authHost + "/oauth2/v3/authorize");
                     b.Port                      = -1;
                     var q                       = HttpUtility.ParseQueryString(b.Query);
                     q["client_id"]              = "ownerapi";
                     q["code_challenge"]         = code_challenge;
                     q["code_challenge_method"]  = "S256";
-                    q["redirect_uri"]           = SSO_URI + "/void/callback";
+                    q["redirect_uri"]           = authHost + "/void/callback";
                     q["response_type"]          = "code";
                     q["scope"]                  = "openid email offline_access";
                     q["state"]                  = state;
                     b.Query                     = q.ToString();
                     string url                  = b.ToString();
+
+                    referrer = b.Uri;
 
                     var temp = content.ReadAsStringAsync().Result;
 
@@ -162,14 +177,15 @@ namespace TessApi {
             d.Add("client_id", "ownerapi");
             d.Add("code", code);
             d.Add("code_verifier", code_verifier);
-            d.Add("redirect_uri", SSO_URI + "/void/callback");
+            d.Add("redirect_uri", authHost + "/void/callback");
 
             string json = new JavaScriptSerializer().Serialize(d);
             string tmpAccessToken;
 
             using ( HttpClient client = new TessHttpClient(new TessClientHandler(null, null)) ) {
+                client.DefaultRequestHeaders.Referrer = referrer;
                 using ( StringContent content = new StringContent(json, Encoding.UTF8, "application/json") ) {
-                    HttpResponseMessage result = await client.PostAsync(SSO_URI + "/oauth2/v3/token", content);
+                    HttpResponseMessage result = await client.PostAsync(authHost + "/oauth2/v3/token", content);
 
                     if ( result.StatusCode != HttpStatusCode.OK ) throw new Exception("authorization_code - Error: " + result.StatusCode);
 
