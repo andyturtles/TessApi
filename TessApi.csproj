@@ -44,8 +44,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="TessApiLogin.cs" />
-    <Compile Include="TessApiLogin_MFA.cs" />
+    <Compile Include="TessApiLoginNew.cs" />
     <Compile Include="TessApiLoginResult.cs" />
     <Compile Include="TessApiResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

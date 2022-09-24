@@ -16,7 +16,7 @@ namespace TessApi {
     /// </summary>
     public class MyTess {
 
-        private TessApiLogin tessApiLogin;
+        private TessApiLoginNew tessApiLogin;
 
         private long? myCarId;
 
@@ -48,19 +48,8 @@ namespace TessApi {
         public MyTess() {
         }
 
-        public async Task LoadLogin() {
+        public void LoadLogin() {
             LoginResponse   = TessTools.LoadResponse<LoginResponse>(out _, true);
-
-            //if ( true ) {
-            //    if ( tessApiLogin == null ) {
-            //        tessApiLogin = new TessApiLogin();
-            //        tessApiLogin.LoginResponse = LoginResponse;
-            //    }
-            //    await tessApiLogin.UpdateTeslaTokenFromRefreshToken();
-            //    //LoginResponse tmpLoginResponse = await TessApiLogin.UpdateTeslaTokenFromRefreshToken(LoginResponse);
-            //    //if ( tmpLoginResponse != null ) LoginResponse = tmpLoginResponse;
-            //    //// todo save?
-            //}
         }
 
         public void SetCarId(long cId) {
@@ -279,31 +268,26 @@ namespace TessApi {
             }
         }
 
-        public async Task<TessApiLoginResult> Login(string username, string pass) {
+        public string GetLoginUrl() {
             try {
-                tessApiLogin        = new TessApiLogin();
-                bool loginFinished  = await tessApiLogin.DoLogin(username, pass);
-                if ( !loginFinished ) return new TessApiLoginResult(true); // MFA required!
-
-                HandleLoginSuccess();
-                return new TessApiLoginResult(false);
+                tessApiLogin = new TessApiLoginNew();
+                return tessApiLogin.BuildUrl();
             }
             catch ( Exception ex ) {
-                Log.Error("MyTess.Login", ex);
-                return new TessApiLoginResult(ex);
+                return ex.Message;
             }
         }
 
-        public async Task<TessApiLoginResult> ContinueMfaLogin(string mfaCode) {
+        public async Task<TessApiLoginResult> ContinueLogin(string retUrl) {
             try {
                 if ( tessApiLogin == null ) throw new Exception("No Login Object!");
-                await tessApiLogin.ContinueLoginAfterMfa(mfaCode);
+                await tessApiLogin.ComputeReturnUrl(retUrl);
 
                 HandleLoginSuccess();
                 return new TessApiLoginResult(false);
             }
             catch ( Exception ex ) {
-                Log.Error("MyTess.ContinueMfaLogin", ex);
+                Log.Error("MyTess.ContinueLogin", ex);
                 return new TessApiLoginResult(ex);
             }
         }

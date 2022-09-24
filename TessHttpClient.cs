@@ -6,6 +6,8 @@ namespace TessApi {
 
     internal class TessHttpClient : HttpClient {
 
+        internal const string   SSO_URI     = "https://auth.tesla.com";
+
         internal TessClientHandler myClientHandler;
 
         private const string USER_AGENT_X   = ""; // oder das? "TeslaLogger", oder das "TL V1" - Oder leer, dann gar nicht setzten ....
@@ -18,7 +20,7 @@ namespace TessApi {
             DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             DefaultRequestHeaders.Connection.Add("keep-alive");
 
-            BaseAddress = new Uri(TessApiLogin.SSO_URI);
+            BaseAddress = new Uri(SSO_URI);
         }
 
         protected override void Dispose(bool disposing) {
