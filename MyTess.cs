@@ -20,7 +20,7 @@ namespace TessApi {
 
         private long? myCarId;
 
-        public LoginResponse LoginResponse { get; internal set; }
+        public LoginResponse LoginResponse { get; set; }
         public IList<Product> ProductList { get; internal set; }
         public Product MyCar { get; internal set; }
         public CarData MyCarData { get; internal set; }
@@ -67,17 +67,17 @@ namespace TessApi {
         }
 
         public async Task<TessApiResult> OpenFrontTrunk() {
-            string cmdTxt = $"which_trunk=front";
+            string cmdTxt = BuildCommandJson("which_trunk", "front");
             return await SendCommand("actuate_trunk", cmdTxt);
         }
 
         public async Task<TessApiResult> OpenRearTrunk() {
-            string cmdTxt = $"which_trunk=rear";
+            string cmdTxt = BuildCommandJson("which_trunk", "rear");
             return await SendCommand("actuate_trunk", cmdTxt);
         }
 
         public async Task<TessApiResult> SetSentryMode(bool activate) {
-            string cmdTxt = $"on=" + activate;
+            string cmdTxt = BuildCommandJson("on", activate.ToString());
             return await SendCommand("set_sentry_mode", cmdTxt);
         }
 
@@ -110,7 +110,7 @@ namespace TessApi {
         }
 
         public async Task<TessApiResult> SetChargeLimit(int limitPercentage) {
-            string cmdTxt = "percent=" + limitPercentage;
+            string cmdTxt = BuildCommandJson("percent", limitPercentage.ToString());
             return await SendCommand("set_charge_limit", cmdTxt);
         }
 
@@ -129,38 +129,33 @@ namespace TessApi {
         public async Task<TessApiResult> SetTemps(double driver, double passenger) {
             string drvStr = TessTools.GetDoubleAsString(driver);
             string pasStr = TessTools.GetDoubleAsString(passenger);
-
-            string cmdTxt = $"driver_temp={drvStr}&passenger_temp={pasStr}";
+            string cmdTxt = BuildCommandJson("driver_temp", drvStr, "passenger_temp", pasStr);
             return await SendCommand("set_temps", cmdTxt);
         }
 
         public async Task<TessApiResult> SetPreconditioningMax(bool on) {
-            string cmdTxt = $"on={on}";
+            string cmdTxt = BuildCommandJson("on", on.ToString());
             return await SendCommand("set_preconditioning_max", cmdTxt);
         }
 
-        private string GetCoordinatesString(double lat, double lon) {
-            NumberFormatInfo nfi        = new NumberFormatInfo();
-            nfi.NumberDecimalSeparator  = ".";
-            nfi.NumberGroupSeparator    = "";
-            string latStr               = lat.ToString(nfi);
-            string lonStr               = lon.ToString(nfi);
-            string coordStr             = $"lat={latStr}&lon={lonStr}";
+        private string GetCoordinatesString(double val) {
+            NumberFormatInfo nfi      = new NumberFormatInfo {NumberDecimalSeparator = ".", NumberGroupSeparator = ""};
+            string           coordStr = val.ToString(nfi);
             return coordStr;
         }
 
         public async Task<TessApiResult> CloseWindows(double lat, double lon) {
-            string cmdTxt = $"command=close&" + GetCoordinatesString(lat, lon);
+            string cmdTxt = BuildCommandJson("command", "close", "lat", GetCoordinatesString(lat), "lon", GetCoordinatesString(lon));
             return await SendCommand("window_control", cmdTxt);
         }
 
         public async Task<TessApiResult> VentWindows(double lat, double lon) {
-            string cmdTxt = $"command=vent&" + GetCoordinatesString(lat, lon);
+            string cmdTxt = BuildCommandJson("command", "vent", "lat", GetCoordinatesString(lat), "lon", GetCoordinatesString(lon));
             return await SendCommand("window_control", cmdTxt);
         }
 
         public async Task<TessApiResult> TriggerHomelink(double lat, double lon) {
-            string cmdTxt = GetCoordinatesString(lat, lon);
+            string cmdTxt = BuildCommandJson("lat", GetCoordinatesString(lat), "lon", GetCoordinatesString(lon));
             return await SendCommand("trigger_homelink", cmdTxt);
         }
 
@@ -180,7 +175,7 @@ namespace TessApi {
         }
 
         public async Task<TessApiResult> SetSeatHeater(SeatHeaterNumber seat, SeatHeaterLevel lev) {
-            string cmdTxt = $"heater={( (int)seat )}&level={( (int)lev )}";
+            string cmdTxt = BuildCommandJson("heater", ( (int)seat ).ToString(), "level", ( (int)lev ).ToString());
             return await SendCommand("remote_seat_heater_request", cmdTxt);
         }
 
@@ -303,11 +298,23 @@ namespace TessApi {
 
         #endregion State / Wakeup etc. ...
 
-         private async Task<TessApiResult> SendCommand(string command, string commandText = null) {
+        private static string BuildCommandJson(params string[] keyValParams) {
+            string cmd = "{";
+            for ( int i = 0; i < keyValParams.Length - 1; i += 2 ) {
+                if ( cmd.Length > 1 ) cmd += ", ";
+                cmd += "\"" + keyValParams[i]     + "\":";
+                cmd += "\"" + keyValParams[i + 1] + "\"";
+            }
+
+            cmd += "}";
+            return cmd;
+        }
+
+        private async Task<TessApiResult> SendCommand(string command, string commandText = null) {
             try {
-                string url              = $"https://owner-api.teslamotors.com/api/1/vehicles/{myCarId.Value}/command/" + command;
-                string result           = await CallUrl(url, "POST", true, commandText);
-                CommandResult cr        = SerializeTool.DeSerializeJson<CommandResult>(result);
+                string        url    = $"https://owner-api.teslamotors.com/api/1/vehicles/{myCarId.Value}/command/" + command;
+                string        result = await CallUrl(url, "POST", true, commandText);
+                CommandResult cr     = SerializeTool.DeSerializeJson<CommandResult>(result);
                 TessTools.SaveResponse(cr, command);
                 return new TessApiResult(cr);
             }

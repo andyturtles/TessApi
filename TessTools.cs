@@ -52,7 +52,12 @@ namespace TessApi {
 
         private static string GetSavedResponseFilePath(Type t, string add) {
             string filename                             = t.Name;
-            if ( !String.IsNullOrEmpty(add) ) filename  += "_" + add;
+
+            if ( !String.IsNullOrEmpty(add) ) {
+                int idx            = add.IndexOf("?", StringComparison.Ordinal);
+                if ( idx > 0 ) add = add.Remove(idx);
+                filename += "_" + add;
+            }
 
             string savedResponseFolder  = Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetName().CodeBase);
             Uri uri                     = new Uri(savedResponseFolder);
