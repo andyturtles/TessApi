@@ -25,10 +25,10 @@ namespace TessApi {
             string code = retUrl.Substring(retUrl.IndexOf("&code=", StringComparison.Ordinal) + "&code=".Length);
             code = code.Remove(code.IndexOf("&", StringComparison.Ordinal));
 
-            await GetTokenAsync3(code);
+            await GetTokenAsync(code);
         }
 
-        private async Task GetTokenAsync3(string code) {
+        private async Task GetTokenAsync(string code) {
             Dictionary<string, string> d = new Dictionary<string, string>();
             d.Add("grant_type", "authorization_code");
             d.Add("client_id", "ownerapi");
@@ -46,8 +46,26 @@ namespace TessApi {
 
                     string  resultContent = result.Content.ReadAsStringAsync().Result;
                     LoginResponse = SerializeTool.DeSerializeJson<LoginResponse>(resultContent);
-                    //RefreshToken      = jsonResult["refresh_token"];
-                    //tmpAccessToken = jsonResult["access_token"];
+                }
+            }
+        }
+
+        public async Task RefreshTokenAsync() {
+            Dictionary<string, string> d = new Dictionary<string, string>();
+            d.Add("grant_type", "refresh_token");
+            d.Add("client_id", "ownerapi");
+            d.Add("refresh_token", LoginResponse.refresh_token);
+            d.Add("scope", "openid email offline_access");
+
+            string json = new JavaScriptSerializer().Serialize(d);
+
+            using ( HttpClient client = new TessHttpClient(new TessClientHandler(null, null)) ) {
+                using ( StringContent content = new StringContent(json, Encoding.UTF8, "application/json") ) {
+                    HttpResponseMessage result = await client.PostAsync("https://auth.tesla.com/oauth2/v3/token", content);
+                    if ( result.StatusCode != HttpStatusCode.OK ) throw new Exception("refresh_token - Error: " + result.StatusCode);
+
+                    string resultContent = result.Content.ReadAsStringAsync().Result;
+                    LoginResponse = SerializeTool.DeSerializeJson<LoginResponse>(resultContent);
                 }
             }
         }

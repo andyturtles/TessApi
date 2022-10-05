@@ -278,7 +278,7 @@ namespace TessApi {
                 if ( tessApiLogin == null ) throw new Exception("No Login Object!");
                 await tessApiLogin.ComputeReturnUrl(retUrl);
 
-                HandleLoginSuccess();
+                HandleLoginSuccess(true);
                 return new TessApiLoginResult(false);
             }
             catch ( Exception ex ) {
@@ -287,13 +287,30 @@ namespace TessApi {
             }
         }
 
-        private void HandleLoginSuccess() {
+        public async Task<TessApiLoginResult> RefreshToken() {
+            try {
+                if ( tessApiLogin == null ) tessApiLogin = new TessApiLoginNew();
+                tessApiLogin.LoginResponse = LoginResponse;
+
+                await tessApiLogin.RefreshTokenAsync();
+                Log.Info("after - tessApiLogin.RefreshTokenAsync");
+
+                HandleLoginSuccess(false);
+                return new TessApiLoginResult(false);
+            }
+            catch ( Exception ex ) {
+                Log.Error("MyTess.ContinueLogin", ex);
+                return new TessApiLoginResult(ex);
+            }
+        }
+
+        private void HandleLoginSuccess(bool clearCarData) {
             LoginResponse   = tessApiLogin.LoginResponse;
             if ( String.IsNullOrEmpty(LoginResponse?.access_token) ) throw new Exception("access_token LEER!");
             TessTools.SaveResponse(LoginResponse, null, true);
 
-            tessApiLogin = null; // brauchen wir jetzt nicht mehr!
-            myCarId = null; // Can change for other user! Need to reset after login.
+            tessApiLogin = null;                // brauchen wir jetzt nicht mehr!
+            if ( clearCarData ) myCarId = null; // Can change for other user! Need to reset after login.
         }
 
         #endregion State / Wakeup etc. ...
