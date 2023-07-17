@@ -44,7 +44,7 @@ namespace TessApi {
 
                     if ( result.StatusCode != HttpStatusCode.OK ) throw new Exception("authorization_code - Error: " + result.StatusCode);
 
-                    string  resultContent = result.Content.ReadAsStringAsync().Result;
+                    string resultContent = result.Content.ReadAsStringAsync().Result;
                     LoginResponse = SerializeTool.DeSerializeJson<LoginResponse>(resultContent);
                 }
             }
@@ -72,11 +72,15 @@ namespace TessApi {
 
         public string BuildUrl() {
             // Create random strings with length of 83 and 16 characters
-            codeVerifier = RandomString(83);
+            // FYI for anyone looking into this, as of today 64 character code_verifier strings are no longer supported, only 86.
+            // More: https://github.com/tomhollander/TeslaAuth/issues/30
+            // THANK YOU ^
+
+            codeVerifier = "ab" + RandomString(84);
             string state = RandomString(16);
 
-            string codeChallengeSha256 = ComputeSha256Hash(codeVerifier);
-            string codeChallenge       = Convert.ToBase64String(Encoding.Default.GetBytes(codeChallengeSha256));
+            byte[] codeChallengeSha256 = ComputeSha256Hash(codeVerifier);
+            string codeChallenge       = Base64UrlEncode(codeChallengeSha256);
 
             //Make URL and call it in default browser. User has to log in his TESLA account
             string url = "https://auth.tesla.com/oauth2/v3/authorize?audience=https%3A%2F%2Fownership.tesla.com%2F&client_id=ownerapi&code_challenge="                                                   +
@@ -86,20 +90,21 @@ namespace TessApi {
             return url;
         }
 
-        public static string ComputeSha256Hash(string text) {
-            string hashString;
+        public static byte[] ComputeSha256Hash(string text) {
             using ( SHA256 sha256 = SHA256.Create() ) {
                 byte[] hash = sha256.ComputeHash(Encoding.Default.GetBytes(text));
-                hashString = ToHex(hash, false);
+                return hash;
             }
-
-            return hashString;
         }
 
-        private static string ToHex(byte[] bytes, bool upperCase) {
-            StringBuilder result = new StringBuilder(bytes.Length * 2);
-            for ( int i = 0; i < bytes.Length; i++ ) result.Append(bytes[i].ToString(upperCase ? "X2" : "x2"));
-            return result.ToString();
+        public static string Base64UrlEncode(byte[] bytes) {
+            string base64 = Convert.ToBase64String(bytes);
+            string encoded = base64
+                            .Replace('+', '-')
+                            .Replace('/', '_')
+                            .Replace("=", String.Empty)
+                            .Trim();
+            return encoded;
         }
 
         private static string RandomString(int v) {
